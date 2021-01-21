@@ -7,6 +7,8 @@ import (
 	"data_collector/pkg/routes"
 	"log"
 
+	"github.com/valyala/fasthttp"
+
 	"go.uber.org/zap"
 )
 
@@ -18,19 +20,19 @@ var (
 
 func main() {
 	err := logger.NewLogger()
-	appConfig := config.InitConf("common.yml")
 	if err != nil {
 		log.Fatal("error log init", err)
 	}
+	appConfig := config.InitConf("common.yml")
 	collector := repository.NewCollector()
 	router := routes.InitRouter(appConfig, collector, appName, buildHash, buildTime)
-	// Start server
 	logger.Info(
 		"Server running on port",
 		zap.String("port", appConfig.AppPort),
 		zap.String("url", "http://localhost:"+appConfig.AppPort),
 	)
-	err = router.InitRoutes().Start(":" + appConfig.AppPort)
+	r := router.InitRoutes()
+	err = fasthttp.ListenAndServe(":"+appConfig.AppPort, r.Handler)
 	if err != nil {
 		logger.Fatal("Router error", err)
 	}

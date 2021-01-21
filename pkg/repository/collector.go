@@ -7,6 +7,6 @@ func NewCollector() *Collector {
 	return &Collector{}
 }
 
-func (c *Collector) HandleEvent(id int32, label string) {
-
+func (c *Collector) HandleEvent(id int32, label string) bool {
+	return true
 }

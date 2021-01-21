@@ -1,18 +1,13 @@
 package middleware
 
 import (
-	"data_collector/pkg/logger"
-	"time"
-
 	"github.com/labstack/echo/v4"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 func ZapLogger() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			start := time.Now()
+			//start := time.Now()
 
 			err := next(c)
 			if err != nil {
@@ -27,27 +22,27 @@ func ZapLogger() echo.MiddlewareFunc {
 				id = res.Header().Get(echo.HeaderXRequestID)
 			}
 
-			fields := []zapcore.Field{
-				zap.Int("status", res.Status),
-				zap.String("latency", time.Since(start).String()),
-				zap.String("id", id),
-				zap.String("method", req.Method),
-				zap.String("uri", req.RequestURI),
-				zap.String("host", req.Host),
-				zap.String("remote_ip", c.RealIP()),
-			}
+			//fields := []zapcore.Field{
+			//	zap.Int("status", res.Status),
+			//	zap.String("latency", time.Since(start).String()),
+			//	zap.String("id", id),
+			//	zap.String("method", req.Method),
+			//	zap.String("uri", req.RequestURI),
+			//	zap.String("host", req.Host),
+			//	zap.String("remote_ip", c.RealIP()),
+			//}
 
-			n := res.Status
-			switch {
-			case n >= 500:
-				logger.Error("Server error", err, fields...)
-			case n >= 400:
-				logger.Warning("Client error", fields...)
-			case n >= 300:
-				logger.Info("Redirection", fields...)
-			default:
-				logger.Info("Success", fields...)
-			}
+			//n := res.Status
+			//switch {
+			//case n >= 500:
+			//	logger.Error("Server error", err, fields...)
+			//case n >= 400:
+			//	logger.Warning("Client error", fields...)
+			//case n >= 300:
+			//	logger.Info("Redirection", fields...)
+			//default:
+			//	logger.Info("Success", fields...)
+			//}
 
 			return nil
 		}
