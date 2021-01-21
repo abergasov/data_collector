@@ -1,0 +1,8 @@
+app_port: 29015
+conf_db:
+  address: 127.0.0.1:3120
+  user: g2jvD6L8CANDsYGhJBEyQYeEbmHj
+  pass: ZTm0axdCQsrK1imCgsFq5KSAQZyzX2GhPpxr
+  db_name: data_collector
+  read_timeout: 1
+  write_timeout: 1

@@ -1,0 +1,25 @@
+version: '3'
+
+volumes:
+  data_volume:
+
+services:
+
+  dc_db:
+    image: mariadb
+    env_file:
+      - configs/common.env
+    container_name: dc_db.mf
+    restart: always
+    tty: true
+    ports:
+      - 3666:3306
+    volumes:
+      - data_volume:/var/lib/mysql/
+    networks:
+      - app-network
+
+#Docker Networks
+networks:
+  app-network:
+    driver: bridge
