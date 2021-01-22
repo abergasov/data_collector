@@ -18,6 +18,7 @@ type AppConfig struct {
 
 type DBConf struct {
 	Address      string        `yaml:"address"`
+	Port         string        `yaml:"port"`
 	User         string        `yaml:"user"`
 	Pass         string        `yaml:"pass"`
 	DBName       string        `yaml:"db_name"`

@@ -13,12 +13,11 @@ var (
 	strContentType     = []byte("Content-Type")
 	strApplicationJSON = []byte("application/json")
 	strOK              = []byte(`{"ok":true}`)
-	str500             = []byte(`{"ok":false}`)
 )
 
 type AppRouter struct {
 	appBuildInfo   []byte
-	FastHttpEngine *router.Router
+	FastHTTPEngine *router.Router
 	config         *config.AppConfig
 	collector      ICollector
 }
@@ -37,7 +36,7 @@ func InitRouter(cnf *config.AppConfig, c ICollector, appName, appHash, appBuild 
 	}
 	b, _ := json.Marshal(buildInfo)
 	return &AppRouter{
-		FastHttpEngine: router.New(),
+		FastHTTPEngine: router.New(),
 		config:         cnf,
 		collector:      c,
 		appBuildInfo:   b,
@@ -45,17 +44,26 @@ func InitRouter(cnf *config.AppConfig, c ICollector, appName, appHash, appBuild 
 }
 
 func (ar *AppRouter) InitRoutes() *router.Router {
-	//ar.FastHttpEngine.GET("/", fasthttp.CompressHandler(ar.Index))
-	ar.FastHttpEngine.GET("/", ar.Index)
-	//ar.FastHttpEngine.POST("/collect", fasthttp.CompressHandler(ar.Collect))
-	ar.FastHttpEngine.POST("/collect", ar.Collect)
-	return ar.FastHttpEngine
+	//ar.FastHTTPEngine.GET("/", fasthttp.CompressHandler(ar.Index))
+	ar.FastHTTPEngine.GET("/", ar.Index)
+	//ar.FastHTTPEngine.POST("/collect", fasthttp.CompressHandler(ar.Collect))
+	ar.FastHTTPEngine.POST("/collect", ar.Collect)
+	ar.FastHTTPEngine.GET("/state", ar.State)
+	return ar.FastHTTPEngine
 }
 
 func (ar *AppRouter) Index(ctx *fasthttp.RequestCtx) {
 	ctx.Response.Header.SetCanonical(strContentType, strApplicationJSON)
 	ctx.SetStatusCode(http.StatusOK)
 	ctx.Write(ar.appBuildInfo)
+}
+
+func (ar *AppRouter) State(ctx *fasthttp.RequestCtx) {
+	ctx.Response.Header.SetCanonical(strContentType, strApplicationJSON)
+	ctx.SetStatusCode(http.StatusOK)
+	stat := ar.collector.GetState()
+	statBytes, _ := json.Marshal(stat)
+	ctx.Write(statBytes)
 }
 
 func (ar *AppRouter) Collect(ctx *fasthttp.RequestCtx) {
@@ -67,11 +75,7 @@ func (ar *AppRouter) Collect(ctx *fasthttp.RequestCtx) {
 	}
 
 	ctx.Response.Header.SetCanonical(strContentType, strApplicationJSON)
-	if ar.collector.HandleEvent(event.ID, event.Label) {
-		ctx.SetStatusCode(http.StatusOK)
-		ctx.Write(strOK)
-		return
-	}
-	ctx.SetStatusCode(http.StatusInternalServerError)
-	ctx.Write(str500)
+	ar.collector.HandleEvent(event.ID, event.Label)
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.Write(strOK)
 }

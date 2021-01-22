@@ -5,6 +5,7 @@ import (
 	"data_collector/pkg/logger"
 	"data_collector/pkg/repository"
 	"data_collector/pkg/routes"
+	"data_collector/pkg/storage"
 	"log"
 
 	"github.com/valyala/fasthttp"
@@ -24,7 +25,8 @@ func main() {
 		log.Fatal("error log init", err)
 	}
 	appConfig := config.InitConf("common.yml")
-	collector := repository.NewCollector()
+	dbConnect := storage.InitDBConnect(appConfig)
+	collector := repository.NewCollector(dbConnect)
 	router := routes.InitRouter(appConfig, collector, appName, buildHash, buildTime)
 	logger.Info(
 		"Server running on port",

@@ -6,7 +6,7 @@ volumes:
 services:
 
   dc_db:
-    image: mariadb
+    image: mysql
     env_file:
       - configs/common.env
     container_name: dc_db.mf
@@ -15,9 +15,43 @@ services:
     ports:
       - 3666:3306
     volumes:
-      - data_volume:/var/lib/mysql/
+      #- data_volume:/var/lib/mysql/
+      - ./scripts/schema.sql:/docker-entrypoint-initdb.d/1.sql
     networks:
       - app-network
+
+  collector_app:
+    container_name: collector.mf
+    build:
+      context: .
+      dockerfile: cmd/Dockerfile
+      args:
+        - gitcommithash=$GIT_HASH
+    restart: always
+    ports:
+      - 29115:29115
+    depends_on:
+      - dc_db
+    networks:
+      - app-network
+    command: ["/app/wait-for-it.sh", "dc_db:3666", "--", "/app/collector"]
+
+  dc_tarantool:
+    image: tarantool/tarantool
+    env_file:
+      - configs/common.env
+    container_name: dc_tnt.mf
+    volumes:
+      - ./scripts:/usr/local/share/tarantool/
+      #- data_volume:/var/lib/tarantool
+
+    command: tarantool /usr/local/share/tarantool/app.init.lua
+    networks:
+      - app-network
+    ports:
+      - 3999:3301
+    depends_on:
+      - dc_db
 
 #Docker Networks
 networks:

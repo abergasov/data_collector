@@ -3,7 +3,7 @@ BUILD_TIME?=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 
 build:
 	@echo "-- building binary. buildHash ${FILE_HASH}"
-	go build -ldflags "-X main.buildHash=${FILE_HASH} -X main.buildTime=${BUILD_TIME}" -o ./bin/voip_stat_panel ./cmd
+	go build -ldflags "-X main.buildHash=${FILE_HASH} -X main.buildTime=${BUILD_TIME}" -o ./bin/collector ./cmd
 
 format:
 	@echo "-- format code"
