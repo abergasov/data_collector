@@ -10,27 +10,28 @@ import (
 	"time"
 )
 
-const rangeMax int32 = 4
+const rangeMaxSw int32 = 4
 
-type Collector struct {
+type CollectorSW struct {
 	dataMxContainer    []*sync.Mutex
-	dataContainer      []map[string]int
+	dataContainer      []sync.Map
 	collectorContainer []chan *event
 	reqCounter         int32
 	db                 *storage.DBConnector
 }
 
-func NewCollector(db *storage.DBConnector) *Collector {
-	cl := &Collector{
-		dataContainer:      make([]map[string]int, rangeMax, rangeMax),
-		collectorContainer: make([]chan *event, rangeMax, rangeMax),
-		dataMxContainer:    make([]*sync.Mutex, rangeMax, rangeMax),
+func NewCollectorSW(db *storage.DBConnector) *CollectorSW {
+	cl := &CollectorSW{
+		dataContainer:      make([]sync.Map, rangeMaxSw, rangeMaxSw),
+		collectorContainer: make([]chan *event, rangeMaxSw, rangeMaxSw),
+		dataMxContainer:    make([]*sync.Mutex, rangeMaxSw, rangeMaxSw),
 		db:                 db,
 		reqCounter:         0,
 	}
 
 	for i := 0; i < int(rangeMax); i++ {
-		cl.dataContainer[i] = make(map[string]int, 1000)
+		//cl.dataContainer[i] = make(map[string]int, 1000)
+		cl.dataContainer[i] = sync.Map{}
 		cl.collectorContainer[i] = make(chan *event, 1000)
 		cl.dataMxContainer[i] = &sync.Mutex{}
 		go cl.collectEvents(i)
@@ -46,12 +47,12 @@ func NewCollector(db *storage.DBConnector) *Collector {
 	return cl
 }
 
-func (cl *Collector) HandleEvent(id int32, label string) {
+func (cl *CollectorSW) HandleEvent(id int32, label string) {
 	i := atomic.AddInt32(&cl.reqCounter, 1) % rangeMax
 	cl.collectorContainer[i] <- &event{id: id, label: label}
 }
 
-func (cl *Collector) GetState() []EventStat {
+func (cl *CollectorSW) GetState() []EventStat {
 	var p []EventStat
 	err := cl.db.Client.Select(&p, "SELECT event_id, event_label, counter FROM counters")
 	if err != nil {
@@ -60,43 +61,45 @@ func (cl *Collector) GetState() []EventStat {
 	return p
 }
 
-func (cl *Collector) collectEvents(i int) {
+func (cl *CollectorSW) collectEvents(i int) {
 	for e := range cl.collectorContainer[i] {
 		lbl := strconv.Itoa(int(e.id)) + "_" + e.label
-		cl.dataMxContainer[i].Lock()
-		if _, ok := cl.dataContainer[i][lbl]; !ok {
-			cl.dataContainer[i][lbl] = 0
+		v, ok := cl.dataContainer[i].Load(lbl)
+		val := 1
+		if ok {
+			val += v.(int)
 		}
-		cl.dataContainer[i][lbl]++
-		cl.dataMxContainer[i].Unlock()
+		cl.dataContainer[i].LoadOrStore(lbl, val)
 	}
 }
 
-func (cl *Collector) saveEvents(i int) {
+func (cl *CollectorSW) saveEvents(i int) {
 	for range time.Tick(5 * time.Second) {
 		cl.dataMxContainer[i].Lock()
 		counterData := cl.dataContainer[i]
-		cl.dataContainer[i] = make(map[string]int, len(counterData))
+		cl.dataContainer[i] = sync.Map{} //make(map[string]int, len(counterData))
 		cl.dataMxContainer[i].Unlock()
 		values := make([]interface{}, 0, 30)
 		placeHolders := make([]string, 0, 10)
-		for j, v := range counterData {
+		counterData.Range(func(j, v interface{}) bool {
+			//for j, v := range counterData {
 			placeHolders = append(placeHolders, "(?,?,?)")
-			data := strings.Split(j, "_")
+			data := strings.Split(j.(string), "_")
 			values = append(values, data[0], data[1], v)
 			if len(placeHolders) >= 10 {
 				cl.insertData(placeHolders, values)
 				values = make([]interface{}, 0, 30)
 				placeHolders = make([]string, 0, 10)
 			}
-		}
+			return true
+		})
 		if len(placeHolders) > 0 {
 			cl.insertData(placeHolders, values)
 		}
 	}
 }
 
-func (cl *Collector) insertData(placeHolders []string, values []interface{}) {
+func (cl *CollectorSW) insertData(placeHolders []string, values []interface{}) {
 	placeStr := strings.Join(placeHolders, ",")
 	sqlI := "INSERT INTO counters (event_id,event_label,counter) VALUES " + placeStr + " AS new(a,b,c) ON DUPLICATE KEY UPDATE counter = counter+c;"
 	cl.db.Client.Exec(sqlI, values...)

@@ -28,7 +28,9 @@ func main() {
 	appConfig := config.InitConf(confFile)
 	dbConnect := storage.InitDBConnect(appConfig)
 	collector := repository.NewCollector(dbConnect)
+	// collectorSw := repository.NewCollectorSW(dbConnect)
 	router := routes.InitRouter(appConfig, collector, appName, buildHash, buildTime)
+	// router := routes.InitRouter(appConfig, collectorSw, appName, buildHash, buildTime)
 	logger.Info(
 		"Server running on port",
 		zap.String("port", appConfig.AppPort),
