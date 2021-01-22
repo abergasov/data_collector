@@ -3,7 +3,7 @@ ARG gitcommithash
 RUN echo "Based on commit: $gitcommithash"
 COPY . /go/src/data_collector
 WORKDIR /go/src/data_collector
-RUN make build hash="$gitcommithash"
+RUN make build_docker hash="$gitcommithash"
 
 # 2 шаг - создание контейнера для запуска
 FROM debian:buster-slim

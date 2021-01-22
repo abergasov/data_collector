@@ -17,6 +17,7 @@ var (
 	appName   = "data_collector"
 	buildTime = "_dev"
 	buildHash = "_dev"
+	confFile  = "common.yml"
 )
 
 func main() {
@@ -24,7 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatal("error log init", err)
 	}
-	appConfig := config.InitConf("common.yml")
+	appConfig := config.InitConf(confFile)
 	dbConnect := storage.InitDBConnect(appConfig)
 	collector := repository.NewCollector(dbConnect)
 	router := routes.InitRouter(appConfig, collector, appName, buildHash, buildTime)

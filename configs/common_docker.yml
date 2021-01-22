@@ -1,7 +1,7 @@
 app_port: 29115
 conf_db:
-  address: 127.0.0.1
-  port: 3666
+  address: dc_db
+  port: 3306
   user: g2jvD6L8CANDsYGhJBEyQYeEbmHj
   pass: ZTm0axdCQsrK1imCgsFq5KSAQZyzX2GhPpxr
   db_name: data_collector
