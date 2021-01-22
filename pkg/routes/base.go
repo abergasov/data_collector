@@ -19,10 +19,12 @@ type AppRouter struct {
 	appBuildInfo   []byte
 	FastHTTPEngine *router.Router
 	config         *config.AppConfig
-	collector      ICollector
+	collectorSNG   ICollector // single map
+	collectorSM    ICollector // syncMap
+	collectorM     ICollector // multi map
 }
 
-func InitRouter(cnf *config.AppConfig, c ICollector, appName, appHash, appBuild string) *AppRouter {
+func InitRouter(cnf *config.AppConfig, cSNG, cSM, cM ICollector, appName, appHash, appBuild string) *AppRouter {
 	buildInfo := struct {
 		OK        bool   `json:"ok"`
 		BuildHash string `json:"build_hash"`
@@ -38,7 +40,9 @@ func InitRouter(cnf *config.AppConfig, c ICollector, appName, appHash, appBuild 
 	return &AppRouter{
 		FastHTTPEngine: router.New(),
 		config:         cnf,
-		collector:      c,
+		collectorSNG:   cSNG,
+		collectorSM:    cSM,
+		collectorM:     cM,
 		appBuildInfo:   b,
 	}
 }
@@ -47,7 +51,9 @@ func (ar *AppRouter) InitRoutes() *router.Router {
 	//ar.FastHTTPEngine.GET("/", fasthttp.CompressHandler(ar.Index))
 	ar.FastHTTPEngine.GET("/", ar.Index)
 	//ar.FastHTTPEngine.POST("/collect", fasthttp.CompressHandler(ar.Collect))
-	ar.FastHTTPEngine.POST("/collect", ar.Collect)
+	ar.FastHTTPEngine.POST("/collect_single_map", ar.CollectSingleMap)
+	ar.FastHTTPEngine.POST("/collect_multi_map", ar.CollectSingleMap)
+	ar.FastHTTPEngine.POST("/collect_sync_map", ar.CollectSyncMap)
 	ar.FastHTTPEngine.GET("/state", ar.State)
 	return ar.FastHTTPEngine
 }
@@ -61,12 +67,12 @@ func (ar *AppRouter) Index(ctx *fasthttp.RequestCtx) {
 func (ar *AppRouter) State(ctx *fasthttp.RequestCtx) {
 	ctx.Response.Header.SetCanonical(strContentType, strApplicationJSON)
 	ctx.SetStatusCode(http.StatusOK)
-	stat := ar.collector.GetState()
+	stat := ar.collectorM.GetState()
 	statBytes, _ := json.Marshal(stat)
 	ctx.Write(statBytes)
 }
 
-func (ar *AppRouter) Collect(ctx *fasthttp.RequestCtx) {
+func (ar *AppRouter) CollectSyncMap(ctx *fasthttp.RequestCtx) {
 	event := &PayloadMessage{}
 	err := event.UnmarshalJSON(ctx.PostBody())
 	if err != nil {
@@ -74,8 +80,36 @@ func (ar *AppRouter) Collect(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
+	ar.collectorSM.HandleEvent(event.ID, event.Label)
+	ar.finishRequesto(ctx)
+}
+
+func (ar *AppRouter) CollectMultiMap(ctx *fasthttp.RequestCtx) {
+	event := &PayloadMessage{}
+	err := event.UnmarshalJSON(ctx.PostBody())
+	if err != nil {
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
+
+	ar.collectorM.HandleEvent(event.ID, event.Label)
+	ar.finishRequesto(ctx)
+}
+
+func (ar *AppRouter) CollectSingleMap(ctx *fasthttp.RequestCtx) {
+	event := &PayloadMessage{}
+	err := event.UnmarshalJSON(ctx.PostBody())
+	if err != nil {
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
+
+	ar.collectorSNG.HandleEvent(event.ID, event.Label)
+	ar.finishRequesto(ctx)
+}
+
+func (ar *AppRouter) finishRequesto(ctx *fasthttp.RequestCtx) {
 	ctx.Response.Header.SetCanonical(strContentType, strApplicationJSON)
-	ar.collector.HandleEvent(event.ID, event.Label)
 	ctx.SetStatusCode(http.StatusOK)
 	ctx.Write(strOK)
 }

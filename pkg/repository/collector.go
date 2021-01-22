@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"data_collector/pkg/logger"
 	"data_collector/pkg/storage"
 	"strconv"
 	"strings"
@@ -17,7 +16,7 @@ type Collector struct {
 	dataContainer      []map[string]int
 	collectorContainer []chan *event
 	reqCounter         int32
-	db                 *storage.DBConnector
+	BaseCollector
 }
 
 func NewCollector(db *storage.DBConnector) *Collector {
@@ -25,9 +24,9 @@ func NewCollector(db *storage.DBConnector) *Collector {
 		dataContainer:      make([]map[string]int, rangeMax, rangeMax),
 		collectorContainer: make([]chan *event, rangeMax, rangeMax),
 		dataMxContainer:    make([]*sync.Mutex, rangeMax, rangeMax),
-		db:                 db,
 		reqCounter:         0,
 	}
+	cl.db = db
 
 	for i := 0; i < int(rangeMax); i++ {
 		cl.dataContainer[i] = make(map[string]int, 1000)
@@ -49,15 +48,6 @@ func NewCollector(db *storage.DBConnector) *Collector {
 func (cl *Collector) HandleEvent(id int32, label string) {
 	i := atomic.AddInt32(&cl.reqCounter, 1) % rangeMax
 	cl.collectorContainer[i] <- &event{id: id, label: label}
-}
-
-func (cl *Collector) GetState() []EventStat {
-	var p []EventStat
-	err := cl.db.Client.Select(&p, "SELECT event_id, event_label, counter FROM counters")
-	if err != nil {
-		logger.Error("error load stat", err)
-	}
-	return p
 }
 
 func (cl *Collector) collectEvents(i int) {
@@ -94,10 +84,4 @@ func (cl *Collector) saveEvents(i int) {
 			cl.insertData(placeHolders, values)
 		}
 	}
-}
-
-func (cl *Collector) insertData(placeHolders []string, values []interface{}) {
-	placeStr := strings.Join(placeHolders, ",")
-	sqlI := "INSERT INTO counters (event_id,event_label,counter) VALUES " + placeStr + " AS new(a,b,c) ON DUPLICATE KEY UPDATE counter = counter+c;"
-	cl.db.Client.Exec(sqlI, values...)
 }
