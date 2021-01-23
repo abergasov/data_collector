@@ -1,9 +1,6 @@
 package repository
 
 import (
-	"data_collector/pkg/storage"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -11,18 +8,18 @@ import (
 type CollectorSNG struct {
 	collector chan *event
 	dataMx    sync.Mutex
-	data      map[string]int
+	data      map[int32]map[string]int
 	BaseCollector
 }
 
-func NewCollectorSNG(db *storage.DBConnector) *CollectorSNG {
+func NewCollectorSNG(db IDatabase) *CollectorSNG {
 	cl := &CollectorSNG{
 		collector: make(chan *event, 1000),
-		data:      make(map[string]int),
+		data:      make(map[int32]map[string]int),
 	}
 	cl.db = db
 
-	go cl.collectEvents()
+	go cl.collectEventsSNG()
 	go cl.saveEvents()
 	return cl
 }
@@ -31,14 +28,17 @@ func (cl *CollectorSNG) HandleEvent(id int32, label string) {
 	cl.collector <- &event{id: id, label: label}
 }
 
-func (cl *CollectorSNG) collectEvents() {
+func (cl *CollectorSNG) collectEventsSNG() {
 	for i := range cl.collector {
-		lbl := strconv.Itoa(int(i.id)) + "_" + i.label
+		//lbl := strconv.Itoa(int(i.id)) + "_" + i.label
 		cl.dataMx.Lock()
-		if _, ok := cl.data[lbl]; !ok {
-			cl.data[lbl] = 0
+		if _, ok := cl.data[i.id]; !ok {
+			cl.data[i.id] = make(map[string]int)
 		}
-		cl.data[lbl]++
+		if _, ok := cl.data[i.id][i.label]; !ok {
+			cl.data[i.id][i.label] = 0
+		}
+		cl.data[i.id][i.label]++
 		cl.dataMx.Unlock()
 	}
 }
@@ -47,14 +47,15 @@ func (cl *CollectorSNG) saveEvents() {
 	for range time.Tick(5 * time.Second) {
 		cl.dataMx.Lock()
 		counterData := cl.data
-		cl.data = make(map[string]int)
+		cl.data = make(map[int32]map[string]int, len(counterData))
 		cl.dataMx.Unlock()
 		values := make([]interface{}, 0, 30)
 		placeHolders := make([]string, 0, 10)
-		for i, v := range counterData {
-			placeHolders = append(placeHolders, "(?,?,?)")
-			data := strings.Split(i, "_")
-			values = append(values, data[0], data[1], v)
+		for j, v := range counterData {
+			for l, c := range v {
+				placeHolders = append(placeHolders, "(?,?,?)")
+				values = append(values, j, l, c)
+			}
 			if len(placeHolders) >= 10 {
 				cl.insertData(placeHolders, values)
 				values = make([]interface{}, 0, 30)
@@ -65,10 +66,4 @@ func (cl *CollectorSNG) saveEvents() {
 			cl.insertData(placeHolders, values)
 		}
 	}
-}
-
-func (cl *CollectorSNG) insertData(placeHolders []string, values []interface{}) {
-	placeStr := strings.Join(placeHolders, ",")
-	sqlI := "INSERT INTO counters (event_id,event_label,counter) VALUES " + placeStr + " AS new(a,b,c) ON DUPLICATE KEY UPDATE counter = counter+c;"
-	cl.db.Client.Exec(sqlI, values...)
 }

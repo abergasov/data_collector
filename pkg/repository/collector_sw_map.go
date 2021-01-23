@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"data_collector/pkg/storage"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,7 +18,7 @@ type CollectorSW struct {
 	BaseCollector
 }
 
-func NewCollectorSW(db *storage.DBConnector) *CollectorSW {
+func NewCollectorSW(db IDatabase) *CollectorSW {
 	cl := &CollectorSW{
 		dataContainer:      make([]sync.Map, rangeMaxSw, rangeMaxSw),
 		collectorContainer: make([]chan *event, rangeMaxSw, rangeMaxSw),
@@ -33,7 +32,7 @@ func NewCollectorSW(db *storage.DBConnector) *CollectorSW {
 		cl.dataContainer[i] = sync.Map{}
 		cl.collectorContainer[i] = make(chan *event, 1000)
 		cl.dataMxContainer[i] = &sync.Mutex{}
-		go cl.collectEvents(i)
+		go cl.collectEventsSW(i)
 		go cl.saveEvents(i)
 	}
 
@@ -51,7 +50,7 @@ func (cl *CollectorSW) HandleEvent(id int32, label string) {
 	cl.collectorContainer[i] <- &event{id: id, label: label}
 }
 
-func (cl *CollectorSW) collectEvents(i int) {
+func (cl *CollectorSW) collectEventsSW(i int) {
 	for e := range cl.collectorContainer[i] {
 		lbl := strconv.Itoa(int(e.id)) + "_" + e.label
 		v, ok := cl.dataContainer[i].Load(lbl)

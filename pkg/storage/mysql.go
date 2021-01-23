@@ -10,7 +10,7 @@ import (
 )
 
 type DBConnector struct {
-	Client *sqlx.DB
+	*sqlx.DB
 }
 
 func InitDBConnect(cnf *config.AppConfig) *DBConnector {
@@ -23,6 +23,6 @@ func InitDBConnect(cnf *config.AppConfig) *DBConnector {
 		)
 	}
 	return &DBConnector{
-		Client: db,
+		db,
 	}
 }

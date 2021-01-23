@@ -51,8 +51,9 @@ func (ar *AppRouter) InitRoutes() *router.Router {
 	//ar.FastHTTPEngine.GET("/", fasthttp.CompressHandler(ar.Index))
 	ar.FastHTTPEngine.GET("/", ar.Index)
 	//ar.FastHTTPEngine.POST("/collect", fasthttp.CompressHandler(ar.Collect))
+	ar.FastHTTPEngine.POST("/collect", ar.CollectSingleMap)
 	ar.FastHTTPEngine.POST("/collect_single_map", ar.CollectSingleMap)
-	ar.FastHTTPEngine.POST("/collect_multi_map", ar.CollectSingleMap)
+	ar.FastHTTPEngine.POST("/collect_multi_map", ar.CollectMultiMap)
 	ar.FastHTTPEngine.POST("/collect_sync_map", ar.CollectSyncMap)
 	ar.FastHTTPEngine.GET("/state", ar.State)
 	return ar.FastHTTPEngine
